@@ -1,3 +1,12 @@
+/**
+ * led_driver.c - Módulo de kernel para controlar un LED conectado a un pin GPIO
+ * 
+ * Este módulo crea un dispositivo de caracteres en /dev/led_driver.
+ * Los usuarios pueden escribir "on" o "off" para controlar el estado del LED.
+ * 
+ * Autor: Diego Arboleda
+ * Fecha: junio 2025
+ */
 #include <linux/module.h>
 #include <linux/kernel.h>
 #include <linux/init.h>
@@ -9,7 +18,7 @@
 
 #define DEVICE_NAME "led_driver"
 #define CLASS_NAME "led"
-#define GPIO_PIN 13              // Cambiar este número segun el  GPIO que se este usando
+#define GPIO_PIN 37              // Cambiar este número segun el  GPIO que se este usando
 
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Diego Arboleda");
@@ -33,7 +42,19 @@ static int dev_release(struct inode *inodep, struct file *filep) {
     return 0;
 }
 
-// Nueva función: write
+
+
+
+/**
+ * dev_write - Interpreta comandos "on"/"off" para controlar el LED
+ * @filep: puntero al archivo
+ * @buffer: cadena recibida desde user space
+ * @len: longitud del buffer
+ * @offset: desplazamiento del archivo (no usado)
+ * 
+ * Retorna el número de bytes escritos o un error.
+ */
+
 static ssize_t dev_write(struct file *filep, const char __user *buffer, size_t len, loff_t *offset) {
     if (len > BUF_LEN - 1)
         len = BUF_LEN - 1;
@@ -45,18 +66,23 @@ static ssize_t dev_write(struct file *filep, const char __user *buffer, size_t l
 
     command_buf[len] = '\0';
 
-    if (strncmp(command_buf, "on", 2) == 0) {
+    // Eliminar salto de línea si lo hay
+    command_buf[strcspn(command_buf, "\n")] = 0;
+
+    if (strcasecmp(command_buf, "on") == 0) {
         gpio_set_value(GPIO_PIN, 1);
-        printk(KERN_INFO "[led_driver] LED encendido\n");
-    } else if (strncmp(command_buf, "off", 3) == 0) {
+        printk(KERN_INFO "[led_driver] LED ENCENDIDO\n");
+    } else if (strcasecmp(command_buf, "off") == 0) {
         gpio_set_value(GPIO_PIN, 0);
-        printk(KERN_INFO "[led_driver] LED apagado\n");
+        printk(KERN_INFO "[led_driver] LED APAGADO\n");
     } else {
-        printk(KERN_WARNING "[led_driver] Comando no reconocido: %s\n", command_buf);
+        printk(KERN_WARNING "[led_driver] Comando inválido: %s\n", command_buf);
+        return -EINVAL;
     }
 
     return len;
 }
+
 
 static struct file_operations fops = {
     .owner = THIS_MODULE,
