@@ -1,102 +1,130 @@
-// led_driver.c - Módulo del kernel que registra un character device
-
 #include <linux/module.h>
 #include <linux/kernel.h>
 #include <linux/init.h>
-#include <linux/fs.h>           // Para alloc_chrdev_region, struct file_operations
-#include <linux/cdev.h>         // Para struct cdev, cdev_init, etc.
-#include <linux/device.h>       // Para class_create y device_create
+#include <linux/fs.h>
+#include <linux/cdev.h>
+#include <linux/device.h>
+#include <linux/gpio.h>          // API de GPIO
+#include <linux/uaccess.h>       // copy_from_user()
 
 #define DEVICE_NAME "led_driver"
-#define CLASS_NAME  "led"
+#define CLASS_NAME "led"
+#define GPIO_PIN 13              // Cambiar este número segun el  GPIO que se este usando
 
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Diego Arboleda");
-MODULE_DESCRIPTION("Driver de caracter para control de LED");
-MODULE_VERSION("0.2");
+MODULE_DESCRIPTION("Driver de caracter para control de LED usando GPIO");
+MODULE_VERSION("0.3");
 
 static int majorNumber;
 static struct class*  ledClass  = NULL;
 static struct device* ledDevice = NULL;
 static struct cdev led_cdev;
+#define BUF_LEN 10
+static char command_buf[BUF_LEN];
 
-// Funciones del device
 static int dev_open(struct inode *inodep, struct file *filep) {
-    printk(KERN_INFO "[led_driver] Dispositivo abierto.\n");
+    printk(KERN_INFO "[led_driver] Dispositivo abierto\n");
     return 0;
 }
 
 static int dev_release(struct inode *inodep, struct file *filep) {
-    printk(KERN_INFO "[led_driver] Dispositivo cerrado.\n");
+    printk(KERN_INFO "[led_driver] Dispositivo cerrado\n");
     return 0;
 }
 
-// Estructura con los callbacks del device
+// Nueva función: write
+static ssize_t dev_write(struct file *filep, const char __user *buffer, size_t len, loff_t *offset) {
+    if (len > BUF_LEN - 1)
+        len = BUF_LEN - 1;
+
+    if (copy_from_user(command_buf, buffer, len) != 0) {
+        printk(KERN_WARNING "[led_driver] Error al copiar datos desde espacio de usuario\n");
+        return -EFAULT;
+    }
+
+    command_buf[len] = '\0';
+
+    if (strncmp(command_buf, "on", 2) == 0) {
+        gpio_set_value(GPIO_PIN, 1);
+        printk(KERN_INFO "[led_driver] LED encendido\n");
+    } else if (strncmp(command_buf, "off", 3) == 0) {
+        gpio_set_value(GPIO_PIN, 0);
+        printk(KERN_INFO "[led_driver] LED apagado\n");
+    } else {
+        printk(KERN_WARNING "[led_driver] Comando no reconocido: %s\n", command_buf);
+    }
+
+    return len;
+}
+
 static struct file_operations fops = {
     .owner = THIS_MODULE,
     .open = dev_open,
     .release = dev_release,
+    .write = dev_write,
 };
 
-// Init del módulo
 static int __init led_driver_init(void) {
     int ret;
     dev_t dev_no;
 
-    printk(KERN_INFO "[led_driver] Cargando módulo...\n");
+    printk(KERN_INFO "[led_driver] Inicializando módulo...\n");
 
-    // 1. Reservar un major y minor dinámico
+    // 1. Registrar major/minor
     ret = alloc_chrdev_region(&dev_no, 0, 1, DEVICE_NAME);
-    if (ret < 0) {
-        printk(KERN_ALERT "[led_driver] Fallo al asignar major number.\n");
-        return ret;
-    }
+    if (ret < 0) return ret;
 
     majorNumber = MAJOR(dev_no);
-    printk(KERN_INFO "[led_driver] Major asignado: %d\n", majorNumber);
 
-    // 2. Inicializar y agregar el cdev
+    // 2. Inicializar cdev
     cdev_init(&led_cdev, &fops);
     led_cdev.owner = THIS_MODULE;
+    if (cdev_add(&led_cdev, dev_no, 1) < 0) goto fail_region;
 
-    ret = cdev_add(&led_cdev, dev_no, 1);
-    if (ret < 0) {
-        unregister_chrdev_region(dev_no, 1);
-        printk(KERN_ALERT "[led_driver] Fallo al agregar cdev.\n");
-        return ret;
-    }
-
-    // 3. Crear clase del dispositivo
+    // 3. Crear clase y dispositivo
     ledClass = class_create(THIS_MODULE, CLASS_NAME);
-    if (IS_ERR(ledClass)) {
-        cdev_del(&led_cdev);
-        unregister_chrdev_region(dev_no, 1);
-        printk(KERN_ALERT "[led_driver] Fallo al crear clase del dispositivo.\n");
-        return PTR_ERR(ledClass);
-    }
-
-    // 4. Crear el dispositivo
+    if (IS_ERR(ledClass)) goto fail_cdev;
     ledDevice = device_create(ledClass, NULL, dev_no, NULL, DEVICE_NAME);
-    if (IS_ERR(ledDevice)) {
-        class_destroy(ledClass);
-        cdev_del(&led_cdev);
-        unregister_chrdev_region(dev_no, 1);
-        printk(KERN_ALERT "[led_driver] Fallo al crear el dispositivo.\n");
-        return PTR_ERR(ledDevice);
+    if (IS_ERR(ledDevice)) goto fail_class;
+
+    // 4. Solicitar GPIO
+    if (!gpio_is_valid(GPIO_PIN)) {
+        printk(KERN_ALERT "[led_driver] GPIO no válido\n");
+        goto fail_device;
     }
 
-    printk(KERN_INFO "[led_driver] Dispositivo creado exitosamente en /dev/%s\n", DEVICE_NAME);
+    ret = gpio_request(GPIO_PIN, "LED_GPIO");
+    if (ret) {
+        printk(KERN_ALERT "[led_driver] No se pudo solicitar GPIO\n");
+        goto fail_device;
+    }
+
+    gpio_direction_output(GPIO_PIN, 0);  // LED apagado al inicio
+    printk(KERN_INFO "[led_driver] LED listo en GPIO %d\n", GPIO_PIN);
+
     return 0;
+
+fail_device:
+    device_destroy(ledClass, dev_no);
+fail_class:
+    class_destroy(ledClass);
+fail_cdev:
+    cdev_del(&led_cdev);
+fail_region:
+    unregister_chrdev_region(dev_no, 1);
+    return -1;
 }
 
-// Exit del módulo
 static void __exit led_driver_exit(void) {
+    gpio_set_value(GPIO_PIN, 0);  // Apagar LED al salir
+    gpio_free(GPIO_PIN);
     device_destroy(ledClass, MKDEV(majorNumber, 0));
     class_unregister(ledClass);
     class_destroy(ledClass);
     cdev_del(&led_cdev);
     unregister_chrdev_region(MKDEV(majorNumber, 0), 1);
-    printk(KERN_INFO "[led_driver] Módulo descargado y dispositivo eliminado.\n");
+    printk(KERN_INFO "[led_driver] Módulo descargado y GPIO liberado\n");
 }
 
 module_init(led_driver_init);
