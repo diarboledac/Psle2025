@@ -109,7 +109,9 @@ static int __init led_driver_init(void) {
     if (cdev_add(&led_cdev, dev_no, 1) < 0) goto fail_region;
 
     // 3. Crear clase y dispositivo
-    ledClass = class_create(THIS_MODULE, CLASS_NAME);
+    //ledClass = class_create(THIS_MODULE, CLASS_NAME);
+    ledClass = class_create(CLASS_NAME);
+
     if (IS_ERR(ledClass)) goto fail_cdev;
     ledDevice = device_create(ledClass, NULL, dev_no, NULL, DEVICE_NAME);
     if (IS_ERR(ledDevice)) goto fail_class;

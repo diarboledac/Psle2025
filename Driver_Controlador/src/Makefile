@@ -1,12 +1,13 @@
-# Nombre del objeto del módulo
 obj-m += led_driver.o
 
-# Variables para cross-compilación (modifícalas si usas headers personalizados)
 KDIR := /lib/modules/$(shell uname -r)/build
-PWD  := $(shell pwd)
+PWD := $(shell pwd)
+
+CROSS_COMPILE := riscv64-linux-gnu-
+ARCH := riscv
 
 all:
-	make -C $(KDIR) M=$(PWD) modules
+	make -C $(KDIR) M=$(PWD) ARCH=$(ARCH) CROSS_COMPILE=$(CROSS_COMPILE) modules
 
 clean:
 	make -C $(KDIR) M=$(PWD) clean
