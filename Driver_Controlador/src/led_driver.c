@@ -102,6 +102,7 @@ static int __init led_driver_init(void) {
     if (ret < 0) return ret;
 
     majorNumber = MAJOR(dev_no);
+    printk(KERN_INFO "[led_driver] Major asignado: %d\n", majorNumber);
 
     // 2. Inicializar cdev
     cdev_init(&led_cdev, &fops);
