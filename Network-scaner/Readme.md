@@ -71,6 +71,8 @@ Probado con MACs conocidas, devuelve el nombre del fabricante (TP-Link, Apple, e
 Capturas incluidas en el directorio /pruebas.
 
 🧾 Documentación Técnica
+
+bash
 📂 Estructura del proyecto
 
 Network-Scanner/
