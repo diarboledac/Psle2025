@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Escáner de Red</title>
+</head>
+<body>
+    <h1>Escáner de Red</h1>
+    <form method="post">
+        <button type="submit">Escanear Red</button>
+    </form>
+
+    {% if devices %}
+        <h2>Dispositivos encontrados:</h2>
+        <table border="1">
+            <tr>
+                <th>IP</th>
+                <th>MAC</th>
+            </tr>
+            {% for device in devices %}
+            <tr>
+                <td>{{ device.ip }}</td>
+                <td>{{ device.mac }}</td>
+            </tr>
+            {% endfor %}
+        </table>
+    {% endif %}
+</body>
+</html>
