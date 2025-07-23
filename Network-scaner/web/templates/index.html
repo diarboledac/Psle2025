@@ -12,22 +12,27 @@
 
     {% if devices %}
         <h2>Dispositivos encontrados:</h2>
-        <table border="1">
-            <tr>
-                <th>IP</th>
-                <th>MAC</th>
-                <th>Fabricante</th>
-                <th>Hostname</th>
-            </tr>
-            {% for device in devices %}
-            <tr>
-                <td>{{ device.ip }}</td>
-                <td>{{ device.mac }}</td>
-                <td>{{ device.vendor }}</td>
-                <td>{{ device.hostname }}</td>
-            </tr>
-            {% endfor %}
-        </table>
+      <table>
+  <thead>
+    <tr>
+      <th>IP</th>
+      <th>MAC</th>
+      <th>Fabricante</th>
+      <th>Nombre del dispositivo</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for device in devices %}
+      <tr>
+        <td>{{ device.ip }}</td>
+        <td>{{ device.mac }}</td>
+        <td>{{ device.vendor }}</td>
+        <td>{{ device.hostname }}</td>
+      </tr>
+    {% endfor %}
+  </tbody>
+</table>
+
     {% endif %}
 </body>
 </html>
