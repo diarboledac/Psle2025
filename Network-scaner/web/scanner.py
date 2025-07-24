@@ -1,38 +1,38 @@
 from scapy.all import ARP, Ether, srp
-from manuf import manuf
 import socket
+from manuf import manuf
 
 def scan_network(ip_range="192.168.1.0/24"):
     devices = []
-    parser = manuf.MacParser()
-
     arp = ARP(pdst=ip_range)
     ether = Ether(dst="ff:ff:ff:ff:ff:ff")
     packet = ether / arp
-
     result = srp(packet, timeout=2, verbose=0)[0]
+
+    parser = manuf.MacParser()
 
     for sent, received in result:
         mac = received.hwsrc
-        ip = received.psrc
-
-        # Buscar nombre de host
-        try:
-            hostname = socket.gethostbyaddr(ip)[0]
-        except socket.herror:
-            hostname = "No disponible"
-
-        # Buscar fabricante
-        vendor = parser.get_manuf(mac) or "No disponible"
-
+        vendor = parser.get_manuf(mac)
         devices.append({
-            "ip": ip,
+            "ip": received.psrc,
             "mac": mac,
-            "vendor": vendor,
-            "hostname": hostname
+            "vendor": vendor or "Desconocido"
         })
-    
-    print(devices)
-
 
     return devices
+
+def scan_ports(ip, ports=[21, 22, 23, 25, 53, 80, 110, 139, 143, 443, 445, 8080]):
+    open_ports = []
+    for port in ports:
+        try:
+            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            sock.settimeout(0.5)
+            result = sock.connect_ex((ip, port))
+            if result == 0:
+                service = socket.getservbyport(port, 'tcp') if port < 1024 else 'Servicio común'
+                open_ports.append({"port": port, "type": "TCP", "service": service})
+            sock.close()
+        except:
+            pass
+    return open_ports
