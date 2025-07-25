@@ -61,3 +61,5 @@ def compare_devices(current, previous):
     for device in current:
         device["is_new"] = device["mac"] not in previous_macs
     return current
+
+
