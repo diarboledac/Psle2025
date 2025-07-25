@@ -64,7 +64,7 @@ def compare_devices(current, previous):
 
 
 
-
+DB_FILE = "dispositivos.json"
 
 def load_previous_devices():
     if os.path.exists(DB_FILE):
