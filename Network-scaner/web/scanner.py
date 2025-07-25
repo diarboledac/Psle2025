@@ -63,3 +63,15 @@ def compare_devices(current, previous):
     return current
 
 
+
+
+
+def load_previous_devices():
+    if os.path.exists(DB_FILE):
+        with open(DB_FILE, "r") as f:
+            return json.load(f)
+    return []
+
+def save_devices(devices):
+    with open(DB_FILE, "w") as f:
+        json.dump(devices, f)
