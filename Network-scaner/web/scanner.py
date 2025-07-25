@@ -2,6 +2,12 @@ from scapy.all import ARP, Ether, srp
 import socket
 from manuf import manuf
 
+
+import json
+import os
+
+DEVICES_FILE = "devices.json"
+
 def scan_network(ip_range="192.168.1.0/24"):
     devices = []
     arp = ARP(pdst=ip_range)
@@ -36,3 +42,22 @@ def scan_ports(ip, ports=[21, 22, 23, 25, 53, 80, 110, 139, 143, 443, 445, 8080]
         except:
             pass
     return open_ports
+
+
+
+
+def load_previous_devices():
+    if os.path.exists(DEVICES_FILE):
+        with open(DEVICES_FILE, "r") as f:
+            return json.load(f)
+    return []
+
+def save_current_devices(devices):
+    with open(DEVICES_FILE, "w") as f:
+        json.dump(devices, f, indent=4)
+
+def compare_devices(current, previous):
+    previous_macs = {dev['mac'] for dev in previous}
+    for device in current:
+        device["is_new"] = device["mac"] not in previous_macs
+    return current
